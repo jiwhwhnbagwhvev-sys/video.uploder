@@ -1,0 +1,361 @@
+<!doctype html>
+
+<html lang="id">  
+<head>  
+<meta charset="utf-8"/>  
+<meta name="viewport" content="width=device-width,initial-scale=1"/>  
+<title>Vidio Up — Play & Sound</title>  
+<style>  
+:root{--bg:#000;--muted:#aaa}  
+html,body{height:100%;margin:0;background:var(--bg);color:#fff;font-family:Inter,system-ui,Arial;overflow:hidden}  
+header{position:fixed;left:0;right:0;top:0;height:56px;display:flex;align-items:center;padding:8px 12px;gap:12px;background:linear-gradient(180deg,rgba(0,0,0,0.6),transparent);z-index:50}  
+.header-title{font-weight:800}  
+#feed{position:absolute;inset:56px 0 0 0;overflow-y:auto;scroll-snap-type:y mandatory;background:#000}  
+.post{position:relative;height:calc(100vh - 56px);scroll-snap-align:start;display:flex;align-items:center;justify-content:center;overflow:hidden}  
+.title-bar{position:absolute;left:12px;right:12px;top:12px;z-index:30;padding:8px 12px;background:rgba(0,0,0,0.45);border-radius:10px;font-weight:600}  
+.media{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000}  
+iframe,video,img{width:100%;height:100%;object-fit:cover;border:0;display:block}  
+.rightbar{position:absolute;right:14px;bottom:110px;display:flex;flex-direction:column;gap:12px;z-index:35;align-items:center}  
+.action{width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;cursor:pointer}  
+.counter{font-size:12px;margin-top:6px;color:var(--muted);text-align:center}  
+.unmute-hint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;background:rgba(0,0,0,0.6);padding:10px 14px;border-radius:8px;cursor:pointer}  
+.comments-drawer{position:fixed;left:0;right:0;bottom:0;background:linear-gradient(180deg,rgba(0,0,0,0.95),#000);max-height:55vh;transform:translateY(100%);transition:transform .28s ease;z-index:60;padding:12px;overflow:auto}  
+.comments-drawer.open{transform:translateY(0)}  
+.comment{background:#111;padding:8px;border-radius:8px;margin-bottom:8px}  
+.controls-top{position:absolute;left:12px;top:70px;z-index:36}  
+.btn{background:#06b;border:0;padding:8px 12px;border-radius:8px;color:#fff;cursor:pointer}  
+.small{font-size:13px;color:var(--muted)}  
+footer{position:fixed;left:0;right:0;bottom:6px;text-align:center;font-size:12px;opacity:0.6;pointer-events:none}  
+@media(min-width:900px){ .post{height:calc(100vh - 56px)} }  
+</style>  
+</head>  
+<body>  
+<header>  
+  <div class="header-title">Vidio Up</div>  
+  <div style="flex:1"></div>  
+  <div class="small">Developer: videouprio@co.id</div>  
+</header>  <main id="feed" role="feed" aria-live="polite"></main>  <!-- comments drawer -->  <div id="commentsDrawer" class="comments-drawer" aria-hidden="true">  
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">  
+    <strong>Komentar</strong>  
+    <button id="closeComments" class="btn" style="background:#444">Tutup</button>  
+  </div>  
+  <div id="commentsList"></div>  
+  <div style="display:flex;gap:8px;margin-top:8px">  
+    <input id="commentAuthor" placeholder="@nama" style="flex:0 0 120px;padding:8px;border-radius:8px;border:0;background:#111;color:#fff"/>  
+    <input id="commentText" placeholder="Tulis komentar..." style="flex:1;padding:8px;border-radius:8px;border:0;background:#111;color:#fff"/>  
+    <button id="postComment" class="btn">Kirim</button>  
+  </div>  
+</div>  <footer>Vidio Up — Demo</footer>  <script>  
+/* === CONFIG: isi daftar post (YouTube Shorts atau direct MP4) ===  
+   Kalau mau tambah video: masukkan objek {id, url, title}.  
+   Pertama sudah berisi link yang kamu berikan.  
+*/  
+const POSTS = [
+  { id: 's1', url: 'https://youtube.com/shorts/iMgaej4BwuU?si=jEH5FJR6vLopJa2L', title: 'Video 1' },
+  { id: 's2', url: 'https://youtube.com/shorts/1iZVFNVEpSc?si=nbkh_xpFJYs5uY1B', title: 'Video 2' },
+  { id: 's3', url: 'https://youtube.com/shorts/FqHgZVB_EHw?si=3wjkRO4Lnm-IXi5V', title: 'Video 3' },
+  { id: 's4', url: 'https://youtube.com/shorts/ndWkVfbND40?si=840crrFDy7_9XZlZ', title: 'Video 4' },
+  { id: 's5', url: 'https://youtube.com/shorts/eMflPqt5YVs?si=zH-B5rxIymij8nWK', title: 'Video 5' },
+  { id: 's6', url: 'https://youtube.com/shorts/eKchjdLJovU?si=WEjkJazKkTxOos9S', title: 'Video 6' },
+  { id: 's7', url: 'https://youtube.com/shorts/lHMvkETBXl0?si=pxy3Nji29LZfnd0x', title: 'Video 7' },
+  { id: 's8', url: 'https://youtube.com/shorts/OyoGpFiqlXw?si=GL2jIhzflTx73aGv', title: 'Video 8' },
+  { id: 's9', url: 'https://youtube.com/shorts/KvyqZ0mgXgM?si=9bGnsefX3wqoXqOJ', title: 'Video 9' },
+  { id: 's10', url: 'https://youtube.com/shorts/rqYUJCIO8HY?si=_uT0D-O-5iOatt05', title: 'Video 10' },
+  { id: 's11', url: 'https://youtube.com/shorts/Vyglduo7eAg?si=6JakEqiSTzadjrXz', title: 'Video 11' },
+  { id: 's12', url: 'https://youtube.com/shorts/ENv3ReWF1Ys?si=GS-d7F5_9199u3jX', title: 'Video 12' },
+  { id: 's13', url: 'https://youtube.com/shorts/gxDpUVYw1sY?si=AfO1Z2ZqyJZ4Mssq', title: 'Video 13' },
+  { id: 's14', url: 'https://youtube.com/shorts/VV7bIuEgkpo?si=5Sd3hxXaeq-egkxA', title: 'Video 14' },
+  { id: 's15', url: 'https://youtube.com/shorts/UTX4wpZ3CfM?si=YK3h3H07vX6DMBlP', title: 'Video 15' },
+  { id: 's16', url: 'https://youtube.com/shorts/7tV4zyy_hgM?si=YTMoSsDmkOHWu9eQ', title: 'Video 16' },
+  { id: 's17', url: 'https://youtube.com/shorts/iMgaej4BwuU?si=jEH5FJR6vLopJa2L', title: 'Video 17' },
+  { id: 's18', url: 'https://youtube.com/shorts/ziEU6l1qf4s?si=vQ_vcj4kVJ6Al5Ma', title: 'Video 18' },
+  { id: 's19', url: 'https://youtube.com/shorts/lZVSQXKizHU?si=rT9QLnt_EQUC7pQg', title: 'Video 19' },
+  { id: 's20', url: 'https://youtube.com/shorts/DqP0Hm-Mehs?si=184g8x4Lee68UjtX', title: 'Video 20' },
+  { id: 's21', url: 'https://youtube.com/shorts/C7ZaFplzAuA?si=EtFNblK0m3OAsEl5', title: 'Video 21' },
+  { id: 's22', url: 'https://youtube.com/shorts/jVQG221REv4?si=P7Otpz_udP1nfSIH', title: 'Video 22' },
+  { id: 's23', url: 'https://youtube.com/shorts/rrJM4Cj1swg?si=yjMiSAVYifS5ZtZH', title: 'Video 23' },
+  { id: 's24', url: 'https://youtube.com/shorts/60I3FXcUu3E?si=Q2G50J6oAI5AvpHV', title: 'Video 24' },
+  { id: 's25', url: 'https://youtube.com/shorts/KgzkW01MEGc?si=fZmleR1YOpPwh9FQ', title: 'Video 25' },
+  { id: 's26', url: 'https://youtube.com/shorts/4d2FCPQz4ag?si=s7BvPMarKwCI0Nxe', title: 'Video 26' },
+  { id: 's27', url: 'https://youtube.com/shorts/djbOzXyqm78?si=CfnEn5BD1umHKKE4', title: 'Video 27' },
+  { id: 's28', url: 'https://youtube.com/shorts/4RijGt5QH60?si=pLD0Ii0qtbi_tQah', title: 'Video 28' },
+  { id: 's29', url: 'https://youtube.com/shorts/ZepMW0UZkLw?si=CzGqnyiwTDdJ0kj5', title: 'Video 29' },
+  { id: 's30', url: 'https://youtube.com/shorts/WMyIyZuJND0?si=4JJH1u2AXQBNtwKU', title: 'Video 30' },
+  { id: 's31', url: 'https://youtube.com/shorts/l3h2x-TExEk?si=B7e5CCmRFZj9RRSF', title: 'Video 31' },
+  { id: 's32', url: 'https://youtube.com/shorts/dFrRMnY4AuA?si=Xm2-PGV5ZtrO88uH', title: 'Video 32' },
+  { id: 's33', url: 'https://youtube.com/shorts/4fUdloN6T0E?si=Vug5t_vENt_8JT5d', title: 'Video 33' },
+  { id: 's34', url: 'https://youtube.com/shorts/P9ZMN4PAjiY?si=8l0iLuOlQtk_-SDM', title: 'Video 34' },
+  { id: 's35', url: 'https://youtube.com/shorts/lwg-5TYvBVM?si=AWZSW6Qw79Iav-Ak', title: 'Video 35' },
+  { id: 's36', url: 'https://youtube.com/shorts/9J7Pt20firQ?si=k96J_uXk4_I6c0ng', title: 'Video 36' },
+    { id: 's37', url: 'https://youtube.com/shorts/0USkT2WKHeU?si=JpyKmOGcOcc6Au0V', title: 'Video 37' },
+  { id: 's38', url: 'https://youtu.be/8wSYMkYVKDQ?si=EBStkcJb6NkVLVCs', title: 'Video 38' },
+   { id: 's39', url: 'https://youtu.be/ZlOb1qu4twU?si=7Wa0eAOU-4G-I9xB', title: 'Video 39' },
+    { id: 's40', url: 'https://youtu.be/9QmIeTDkxAU?si=y2hZKhG7F9cXM5u4', title: 'Video 40' },
+    { id: 's41', url: 'https://youtu.be/i9xxftG0Iqk?si=bW-EpLwz52T6ukhf', title: 'Video 41' },
+    { id: 's42', url: 'https://youtu.be/Unl2VO639Ac?si=e0BFOroZcPx2eavP', title: 'Video 42' },
+    { id: 's43', url: 'https://youtu.be/keDofe_rp_8?si=0-7vuLkg8GFV1Njj', title: 'Video 43' },
+  { id: 's44', url: 'https://youtube.com/shorts/lwg-5TYvBVM?si=AWZSW6Qw79Iav-Ak', title: 'Video 44' },
+    { id: 's45', url: 'https://youtu.be/aPrlG9RaMOo?si=6GD9OrF7NF8Hx903', title: 'Video 45' },
+  
+  // ... lanjutkan sampai s100
+];
+  
+/* state stored in localStorage */  
+let state = JSON.parse(localStorage.getItem('vidioup_state')||'{}');  
+state.likes = state.likes || {};       // {id:count}  
+state.comments = state.comments || {}; // {id:[{author,text,ts}]}  
+state.shares = state.shares || {};     // {id:count}  
+  
+function saveState(){ localStorage.setItem('vidioup_state', JSON.stringify(state)); }  
+  
+/* helpers */  
+function extractYouTubeID(url){  
+  if(!url) return null;  
+  const patterns = [/youtu\.be\/([^?&]+)/, /v=([^?&]+)/, /embed\/([^?&]+)/, /shorts\/([^?&]+)/];  
+  for(const p of patterns){ const m = url.match(p); if(m && m[1]) return m[1]; }  
+  return null;  
+}  
+function isMp4(url){ return /\.mp4(\?.*)?$/i.test(url) || url.startsWith('blob:'); }  
+function escapeHtml(s){ return (s||'').toString().replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }  
+  
+/* BUILD FEED */  
+const feed = document.getElementById('feed');  
+const commentsDrawer = document.getElementById('commentsDrawer');  
+const commentsList = document.getElementById('commentsList');  
+const commentAuthor = document.getElementById('commentAuthor');  
+const commentText = document.getElementById('commentText');  
+const postCommentBtn = document.getElementById('postComment');  
+const closeCommentsBtn = document.getElementById('closeComments');  
+let currentCommentsFor = null;  
+  
+function buildFeed(){  
+  feed.innerHTML = '';  
+  POSTS.forEach(post => {  
+    const sec = document.createElement('section');  
+    sec.className = 'post';  
+    sec.dataset.id = post.id;  
+  
+    // title at top  
+    const title = document.createElement('div');  
+    title.className = 'title-bar';  
+    title.textContent = post.title || '';  
+    sec.appendChild(title);  
+  
+    // media container  
+    const media = document.createElement('div');  
+    media.className = 'media';  
+  
+    if(isMp4(post.url)){  
+      const v = document.createElement('video');  
+      v.setAttribute('playsinline','');  
+      v.setAttribute('preload','none');  
+      v.dataset.src = post.url; // lazy  
+      v.style.width='100%'; v.style.height='100%'; v.style.objectFit='cover';  
+      media.appendChild(v);  
+    } else {  
+      // show thumbnail first; lazy-load iframe for autoplay  
+      const ytid = extractYouTubeID(post.url);  
+      const thumb = document.createElement('img');  
+      thumb.src = ytid ? `https://i.ytimg.com/vi/${ytid}/hqdefault.jpg` : '';  
+      thumb.style.width='100%'; thumb.style.height='100%'; thumb.style.objectFit='cover';  
+      media.appendChild(thumb);  
+    }  
+  
+    // right bar  
+    const rightbar = document.createElement('div'); rightbar.className='rightbar';  
+    const likeBtn = document.createElement('div'); likeBtn.className='action'; likeBtn.textContent='❤';  
+    const commentBtn = document.createElement('div'); commentBtn.className='action'; commentBtn.textContent='💬';  
+    const shareBtn = document.createElement('div'); shareBtn.className='action'; shareBtn.textContent='🔗';  
+    const cnt = document.createElement('div'); cnt.className='counter'; cnt.textContent = state.likes[post.id] || 0;  
+    const shareCnt = document.createElement('div'); shareCnt.className='counter'; shareCnt.textContent = state.shares[post.id] || 0;  
+    rightbar.appendChild(likeBtn);  
+    rightbar.appendChild(commentBtn);  
+    rightbar.appendChild(shareBtn);  
+    rightbar.appendChild(cnt);  
+    rightbar.appendChild(shareCnt);  
+  
+    sec.appendChild(media);  
+    sec.appendChild(rightbar);  
+    feed.appendChild(sec);  
+  
+    // event handlers  
+    likeBtn.addEventListener('click', e=>{  
+      e.stopPropagation();  
+      state.likes[post.id] = (state.likes[post.id]||0) + 1;  
+      cnt.textContent = state.likes[post.id];  
+      saveState();  
+    });  
+    commentBtn.addEventListener('click', e=>{  
+      e.stopPropagation(); openComments(post.id);  
+    });  
+    shareBtn.addEventListener('click', e=>{  
+      e.stopPropagation(); doShare(post); shareCnt.textContent = state.shares[post.id] || 0;  
+    });  
+  
+    // toggle sound for mp4 on click  
+    media.addEventListener('click', ()=>{  
+      const v = media.querySelector('video');  
+      if(v){ v.muted = !v.muted; }  
+    });  
+  });  
+  
+  attachObserver();  
+}  
+  
+/* IntersectionObserver: lazy load and autoplay when visible  
+   - for MP4: set src from data-src, muted=true, play()  
+   - for YouTube: create iframe with autoplay=1&mute=1 initially, then if user interaction to unmute -> reload iframe with mute=0  
+*/  
+let io;  
+function attachObserver(){  
+  if(io) io.disconnect();  
+  const opts = { root: feed, threshold: 0.6 };  
+  io = new IntersectionObserver((entries)=>{  
+    entries.forEach(entry=>{  
+      const sec = entry.target;  
+      const media = sec.querySelector('.media');  
+      const postId = sec.dataset.id;  
+      if(entry.isIntersecting){  
+        // pause other videos  
+        document.querySelectorAll('.media video').forEach(v=>{ if(!sec.contains(v)) try{ v.pause(); }catch{} });  
+  
+        const v = media.querySelector('video');  
+        if(v){  
+          if(v.dataset.src){ v.src = v.dataset.src; delete v.dataset.src; }  
+          v.muted = true; // autoplay muted by default  
+          v.play().catch(()=>{});  
+          // show unmute hint if browser blocks sound later  
+          showUnmuteHintOnce(sec, v, postId);  
+        } else {  
+          // youtube: if not loaded -> load iframe muted autoplay  
+          if(!sec.dataset.loaded){  
+            const p = POSTS.find(p=>p.id===postId);  
+            const ytid = extractYouTubeID(p.url);  
+            if(ytid){  
+              const iframe = document.createElement('iframe');  
+              iframe.src = `https://www.youtube-nocookie.com/embed/${ytid}?autoplay=1&mute=1&rel=0&modestbranding=1`;  
+              iframe.allow = 'autoplay; encrypted-media';  
+              iframe.allowFullscreen = true;  
+              iframe.style.width='100%'; iframe.style.height='100%';  
+              media.innerHTML = '';  
+              media.appendChild(iframe);  
+              sec.dataset.loaded = '1';  
+              // add unmute hint for this post  
+              showUnmuteHintOnce(sec, iframe, postId);  
+            }  
+          }  
+        }  
+      } else {  
+        // not visible: pause mp4  
+        const v2 = media.querySelector('video');  
+        if(v2) try{ v2.pause(); }catch{};  
+      }  
+    });  
+  }, opts);  
+  
+  document.querySelectorAll('.post').forEach(p => io.observe(p));  
+}  
+  
+/* show "Tap to hear sound" overlay once per post until user interacts to unmute */  
+function showUnmuteHintOnce(sec, mediaEl, postId){  
+  if(sec.querySelector('.unmute-hint') || localStorage.getItem('unmuteAllowed_'+postId)) return;  
+  const hint = document.createElement('div');  
+  hint.className = 'unmute-hint';  
+  hint.innerText = 'Ketuk untuk mengaktifkan suara';  
+  sec.appendChild(hint);  
+  
+  const onUnmute = async (ev)=>{  
+    ev.stopPropagation();  
+    // mark allowed  
+    localStorage.setItem('unmuteAllowed_'+postId, '1');  
+    // If target is video element  
+    if(mediaEl.tagName && mediaEl.tagName.toLowerCase() === 'video'){  
+      try{  
+        mediaEl.muted = false;  
+        await mediaEl.play();  
+      }catch(e){  
+        console.warn('Play with sound blocked', e);  
+      }  
+    } else {  
+      // it's iframe (YouTube) — reload iframe with mute=0 so sound can play after gesture  
+      const p = POSTS.find(p=>p.id===postId);  
+      const ytid = extractYouTubeID(p.url);  
+      if(ytid){  
+        const iframe = document.createElement('iframe');  
+        iframe.src = `https://www.youtube-nocookie.com/embed/${ytid}?autoplay=1&mute=0&rel=0&modestbranding=1`;  
+        iframe.allow = 'autoplay; encrypted-media';  
+        iframe.allowFullscreen = true;  
+        iframe.style.width='100%'; iframe.style.height='100%';  
+        const media = sec.querySelector('.media');  
+        media.innerHTML = '';  
+        media.appendChild(iframe);  
+      }  
+    }  
+    hint.remove();  
+    // remove listener  
+    sec.removeEventListener('click', onUnmute);  
+  };  
+  
+  // handle click on hint or anywhere in post  
+  hint.addEventListener('click', onUnmute);  
+  // also allow click on post to unmute  
+  sec.addEventListener('click', onUnmute, { once:true });  
+}  
+  
+/* comments handling */  
+function openComments(id){  
+  currentCommentsFor = id;  
+  renderComments();  
+  commentsDrawer.classList.add('open');  
+  commentsDrawer.setAttribute('aria-hidden','false');  
+}  
+function closeComments(){ commentsDrawer.classList.remove('open'); commentsDrawer.setAttribute('aria-hidden','true'); }  
+closeCommentsBtn.addEventListener('click', closeComments);  
+  
+function renderComments(){  
+  const arr = state.comments[currentCommentsFor] || [];  
+  commentsList.innerHTML = '';  
+  if(!arr.length) commentsList.innerHTML = '<div class="small">Belum ada komentar.</div>';  
+  else arr.forEach(c => {  
+    const d = document.createElement('div'); d.className='comment';  
+    d.innerHTML = `<strong>${escapeHtml(c.author)}</strong> · ${new Date(c.ts).toLocaleString()}<div style="margin-top:6px">${escapeHtml(c.text)}</div>`;  
+    commentsList.appendChild(d);  
+  });  
+  commentAuthor.value = '@anon'; commentText.value = '';  
+}  
+postCommentBtn.addEventListener('click', ()=>{  
+  const a = (commentAuthor.value||'@anon').trim();  
+  const t = (commentText.value||'').trim();  
+  if(!t) return alert('Isi komentar dulu');  
+  if(!state.comments[currentCommentsFor]) state.comments[currentCommentsFor] = [];  
+  state.comments[currentCommentsFor].push({ author: a, text: t, ts: Date.now() });  
+  saveState();  
+  renderComments();  
+});  
+  
+/* share: copy post URL (YouTube or MP4) and increment share counter */  
+function doShare(post){  
+  const url = post.url;  
+  try{  
+    navigator.clipboard.writeText(url);  
+    alert('Link disalin ke clipboard');  
+  }catch(e){ alert('Gagal menyalin link'); }  
+  state.shares[post.id] = (state.shares[post.id]||0) + 1;  
+  saveState();  
+  // update shown share count element  
+  const sec = document.querySelector(`.post[data-id="${post.id}"]`);  
+  if(sec){  
+    const sharesDiv = sec.querySelectorAll('.counter')[1]; // second counter is shares  
+    if(sharesDiv) sharesDiv.textContent = state.shares[post.id];  
+  }  
+}  
+  
+/* init & keyboard nav */  
+buildFeed();  
+document.querySelectorAll('.post').forEach((p, idx)=> p.dataset.index = idx);  
+document.addEventListener('keydown', e=>{  
+  if(e.key==='ArrowDown') feed.scrollBy({ top: window.innerHeight - 56, behavior:'smooth' });  
+  if(e.key==='ArrowUp') feed.scrollBy({ top: -(window.innerHeight - 56), behavior:'smooth' });  
+});  
+</script>  </body>  
+</html>  
