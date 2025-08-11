@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Vidio Up — Demo</title>
+<style>
+  :root {
+    --bg: linear-gradient(135deg, #1f1c2c, #928dab);
+    --gold: #d4af37;
+    --white: #fff;
+    --muted: #aaa;
+    --glow-white: #e0e0ff;
+  }
+  body, html {
+    margin:0; padding:0; height:100%;
+    background: var(--bg);
+    color: var(--white);
+    font-family: 'Inter', system-ui, Arial, sans-serif;
+    overflow: hidden;
+  }
+  /* Intro logo overlay */
+  #introLogo {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    opacity: 1;
+    transition: opacity 1.5s ease;
+  }
+  #introLogo svg {
+    width: 150px;
+    height: 150px;
+    fill: var(--white);
+    filter:
+      drop-shadow(0 0 8px var(--glow-white))
+      drop-shadow(0 0 15px var(--glow-white));
+    animation: pulse 2s ease forwards;
+  }
+  @keyframes pulse {
+    0% { transform: scale(0.8); opacity: 0; }
+    50% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* Main content hidden initially */
+  #mainContent {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 1s ease;
+    height: 100vh;
+    overflow: hidden;
+  }
+  #mainContent.visible {
+    opacity: 1;
+    pointer-events: auto;
+    overflow: auto;
+  }
+
+  /* Header */
+  header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 56px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.75), transparent);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 12px;
+    z-index: 50;
+    user-select: none;
+  }
+  .header-title {
+    font-weight: 800;
+    font-size: 1.5rem;
+    color: var(--white);
+    text-shadow: 0 0 5px var(--glow-white);
+  }
+  .header-dev {
+    margin-left: auto;
+    font-size: 0.875rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* Feed area */
+  main#feed {
+    position: absolute;
+    top: 56px; bottom: 0; left: 0; right: 0;
+    overflow-y: auto;
+    scroll-snap-type: y mandatory;
+    background: transparent;
+  }
+  section.post {
+    position: relative;
+    height: calc(100vh - 56px);
+    scroll-snap-align: start;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    user-select: none;
+  }
+  .title-bar {
+    position: absolute;
+    top: 12px; left: 12px; right: 12px;
+    padding: 8px 12px;
+    background: rgba(0,0,0,0.45);
+    border-radius: 10px;
+    font-weight: 600;
+    z-index: 30;
+    user-select: none;
+    color: var(--white);
+    text-shadow: 0 0 3px #000;
+  }
+  .media {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  iframe, video, img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border: none;
+    display: block;
+  }
+  /* Action buttons */
+  .rightbar {
+    position: absolute;
+    right: 16px;
+    bottom: 110px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    align-items: center;
+    z-index: 35;
+    user-select: none;
+  }
+  .action {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 24px;
+    color: var(--white);
+    transition: background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 0 5px rgba(255 255 255 / 0.2);
+  }
+  .action:hover {
+    background: var(--gold);
+    color: #000;
+    box-shadow: 0 0 15px var(--gold);
+  }
+  .counter {
+    font-size: 12px;
+    margin-top: 6px;
+    color: var(--muted);
+    text-align: center;
+    user-select: none;
+    text-shadow: 0 0 2px #000;
+  }
+
+  /* Buku panduan icon kotak kiri bawah */
+  #guideIcon {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, var(--gold), #fff);
+    border-radius: 12px;
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--gold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    user-select: none;
+    transition: box-shadow 0.3s ease;
+  }
+  #guideIcon:hover {
+    box-shadow: 0 0 20px var(--gold);
+  }
+  #guideIcon svg {
+    width: 32px;
+    height: 32px;
+    fill: var(--gold);
+  }
+  /* Buku panduan surat */
+  #guideSheet {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    width: 320px;
+    max-width: 90vw;
+    height: 480px;
+    background: linear-gradient(180deg, #fff, #f9f6e8);
+    border-radius: 16px;
+    box-shadow: 0 0 30px rgba(212, 175, 55, 0.8);
+    padding: 32px 28px;
+    font-family: 'Georgia', serif;
+    font-size: 1rem;
+    color: #7f6f2e;
+    border: 4px solid var(--gold);
+    box-sizing: border-box;
+    z-index: 200;
+    user-select: text;
+    transition: transform 0.5s cubic-bezier(0.4,0,0.2,1), opacity 0.5s ease;
+    opacity: 0;
+    overflow-y: auto;
+  }
+  #guideSheet.visible {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  #guideSheet h2 {
+    font-family: 'Garamond', serif;
+    font-size: 1.75rem;
+    color: var(--gold);
+    margin-top: 0;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  #guideSheet p {
+    line-height: 1.6;
+    margin-bottom: 1em;
+  }
+  #guideClose {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--gold);
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+  #guideClose:hover {
+    color: #b88c1e;
+  }
+
+  footer {
+    position: fixed;
+    left: 0; right: 0; bottom: 6px;
+    text-align: center;
+    font-size: 12px;
+    opacity: 0.6;
+    pointer-events: none;
+    user-select: none;
+    text-shadow: 0 0 2px #000;
+  }
+</style>
+</head>
+<body>
+
+<!-- Intro logo overlay -->
+<div id="introLogo" aria-label="Logo Vidio Up" role="img" aria-live="polite" aria-atomic="true" tabindex="0" >
+  <!-- V logo SVG putih bersinar -->
+  <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false" >
+    <path d="M16 8 L32 56 L48 8 L40 8 L32 40 L24 8 Z"/>
+  </svg>
+</div>
+
+<!-- Main content hidden initially -->
+<div id="mainContent" aria-hidden="true">
+
+<header>
+  <div class="header-title" id="headerTitle">Vidio Up</div>
+  <div class="header-dev">Developer: videouprio@co.id</div>
+</header>
+
+<main id="feed" role="feed" aria-live="polite">
+  <!-- Video posts will be injected here -->
+</main>
+
+<!-- Footer -->
+<footer>Vidio Up — Demo</footer>
+
+<!-- Buku panduan ikon -->
+<div id="guideIcon" role="button" tabindex="0" aria-label="Buka buku panduan" title="Buku Panduan">
+  <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+    <rect x="8" y="8" width="48" height="48" stroke="currentColor" stroke-width="4" fill="none" rx="12" ry="12"/>
+    <rect x="16" y="16" width="32" height="32" stroke="currentColor" stroke-width="2" fill="none" rx="6" ry="6"/>
+  </svg>
+</div>
+
+<!-- Buku panduan surat -->
+<div id="guideSheet" role="document" aria-modal="true" aria-hidden="true" tabindex="-1">
+  <button id="guideClose" aria-label="Tutup buku panduan">&times;</button>
+  <h2>Buku Panduan</h2>
+  <p>• Website ini dibuat pada tanggal 5 Agustus tahun 2025.</p>
+  <p>• Ketika di-klik, video akan mulai diputar sesuai urutan.</p>
+</div>
+
+<script>
+  // Animasi logo muncul lalu fade out, kemudian show main content
+  const introLogo = document.getElementById('introLogo');
+  const mainContent = document.getElementById('mainContent');
+
+  function fadeOutIntro() {
+    introLogo.style.opacity = '0';
+    setTimeout(() => {
+      introLogo.style.display = 'none';
+      mainContent.classList.add('visible');
+      mainContent.setAttribute('aria-hidden', 'false');
+      buildFeed();
+    }, 1500);
+  }
+
+  // Show logo for 2 seconds, then fade out smoothly
+  setTimeout(fadeOutIntro, 2000);
+
+  // Posts data sample
+  const POSTS = [
+    ,    { id: 's1', url: 'https://youtube.com/shorts/iMgaej4BwuU?si=jEH5FJR6vLopJa2L', title: 'Video 1' },  
+    { id: 's2', url: 'https://youtube.com/shorts/1iZVFNVEpSc?si=nbkh_xpFJYs5uY1B', title: 'Video 2' },  
+    { id: 's3', url: 'https://youtube.com/shorts/FqHgZVB_EHw?si=3wjkRO4Lnm-IXi5V', title: 'Video 3' },  
+    { id: 's4', url: 'https://youtube.com/shorts/ndWkVfbND40?si=840crrFDy7_9XZlZ', title: 'Video 4' },  
+  ];
+
+  // State to store likes, comments, shares
+  let state = JSON.parse(localStorage.getItem('vidioup_state') || '{}');
+  state.likes = state.likes || {};
+  state.comments = state.comments || {};
+  state.shares = state.shares || {};
+
+  function saveState() {
+    localStorage.setItem('vidioup_state', JSON.stringify(state));
+  }
+
+  function extractYouTubeID(url) {
+    if (!url) return null;
+    const patterns = [/youtu\.be\/([^?&]+)/, /v=([^?&]+)/, /embed\/([^?&]+)/, /shorts\/([^?&]+)/];
+    for (const p of patterns) {
+      const m = url.match(p);
+      if (m && m[1]) return m[1];
+    }
+    return null;
+  }
+
+  // Build feed
+  const feed = document.getElementById('feed');
+  function buildFeed() {
+    feed.innerHTML = '';
+    POSTS.forEach(post => {
+      const sec = document.createElement('section');
+      sec.className = 'post';
+      sec.dataset.id = post.id;
+
+      const title = document.createElement('div');
+      title.className = 'title-bar';
+      title.textContent = post.title || '';
+      sec.appendChild(title);
+
+      const media = document.createElement('div');
+      media.className = 'media';
+
+      const ytid = extractYouTubeID(post.url);
+      if (ytid) {
+        const iframe = document.createElement('iframe');
+        iframe.src = `https://www.youtube-nocookie.com/embed/${ytid}?rel=0&modestbranding=1&autoplay=0&mute=0`;
+        iframe.allow = 'autoplay; encrypted-media';
+        iframe.allowFullscreen = true;
+        iframe.style.width = '100%';
+        iframe.style.height = '100%';
+        media.appendChild(iframe);
+      } else {
+        // fallback or image
+        const img = document.createElement('img');
+        img.alt = 'Video thumbnail';
+        media.appendChild(img);
+      }
+      sec.appendChild(media);
+
+      // Right bar with like, comment, share
+      const rightbar = document.createElement('div');
+      rightbar.className = 'rightbar';
+
+      const likeBtn = document.createElement('div');
+      likeBtn.className = 'action';
+      likeBtn.textContent = '❤';
+      const likeCount = document.createElement('div');
+      likeCount.className = 'counter';
+      likeCount.textContent = state.likes[post.id] || 0;
+
+      likeBtn.onclick = () => {
+        state.likes[post.id] = (state.likes[post.id] || 0) + 1;
+        likeCount.textContent = state.likes[post.id];
+        saveState();
+      };
+
+      const commentBtn = document.createElement('div');
+      commentBtn.className = 'action';
+      commentBtn.textContent = '💬';
+      commentBtn.title = 'Komentar';
+
+      const shareBtn = document.createElement('div');
+      shareBtn.className = 'action';
+      shareBtn.textContent = '🔗';
+      const shareCount = document.createElement('div');
+      shareCount.className = 'counter';
+      shareCount.textContent = state.shares[post.id] || 0;
+
+      shareBtn.onclick = () => {
+        const urlToShare = post.url;
+        if (navigator.share) {
+          navigator.share({ title: post.title, url: urlToShare }).then(() => {
+            state.shares[post.id] = (state.shares[post.id] || 0) + 1;
+            shareCount.textContent = state.shares[post.id];
+            saveState();
+          }).catch(() => {});
+        } else {
+          prompt('Salin tautan ini:', urlToShare);
+        }
+      };
+
+      commentBtn.onclick = () => {
+        alert('Fitur komentar belum diaktifkan.');
+      };
+
+      rightbar.appendChild(likeBtn);
+      rightbar.appendChild(likeCount);
+      rightbar.appendChild(commentBtn);
+      rightbar.appendChild(shareBtn);
+      rightbar.appendChild(shareCount);
+
+      sec.appendChild(rightbar);
+
+      feed.appendChild(sec);
+    });
+  }
+
+  // Buku panduan toggle
+  const guideIcon = document.getElementById('guideIcon');
+  const guideSheet = document.getElementById('guideSheet');
+  const guideClose = document.getElementById('guideClose');
+
+  guideIcon.addEventListener('click', () => {
+    guideSheet.classList.add('visible');
+    guideSheet.setAttribute('aria-hidden', 'false');
+    guideSheet.focus();
+  });
+  guideClose.addEventListener('click', () => {
+    guideSheet.classList.remove('visible');
+    guideSheet.setAttribute('aria-hidden', 'true');
+    guideIcon.focus();
+  });
+  // Keyboard accessibility
+  guideIcon.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      guideIcon.click();
+    }
+  });
+  guideClose.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      guideClose.click();
+    }
+  });
+
+</script>
+
+</body>
+</html>
